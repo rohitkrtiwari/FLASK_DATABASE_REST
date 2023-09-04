@@ -1,108 +1,87 @@
-from enum import unique
 from itertools import product
 from flask import Flask, request, jsonify
-from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import Column, String, Integer, Float
-from flask_marshmallow import Marshmallow
-import os
-
-from sqlalchemy.sql.expression import desc
+import mysql.connector
+import json
 
 # Init app
+mydb = mysql.connector.connect(
+    host="localhost",
+    user="root",
+    password="root",
+    database="FLASK_DATABASE_REST"
+)
+cursor = mydb.cursor()
 app = Flask(__name__)
-basedir = os.path.abspath(os.path.dirname(__file__))
-# Database
-app.config['SQLALCHEMY_DATABASE_URI'] = "sqlite:///" + os.path.join(basedir, 'db.sqlite')
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-# Init db
-db = SQLAlchemy(app)
-# Init Marshmallow
-ma = Marshmallow(app)
-
-# Product Class/Model
-class Product(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), unique=True)
-    description = db.Column(db.String(200))
-    price = db.Column(db.Float)
-    qty = db.Column(db.Integer)
-
-    def __init__(self, name, description, price, qty):
-        self.name = name
-        self.description = description
-        self.price = price
-        self.qty = qty
-
-
-# Product Schema
-class ProductSchema(ma.Schema):
-    class Meta:
-        fields = ('id', 'name', 'description', 'price', 'qty')
-
-# Init Schema
-product_schema = ProductSchema()
-products_schema = ProductSchema(many=True)
 
 
 # Create a Product
 @app.route('/product', methods=['POST'])
 def add_product():
-    name = request.json['name']
-    description = request.json['description']
-    price = request.json['price']
-    qty = request.json['qty']
+    name = request.args['name']
+    description = request.args['description']
+    price = request.args['price']
+    qty = request.args['qty']
 
-    new_product = Product(name, description, price, qty)
+    sql = "INSERT INTO `product` (`name`, `description`, `price`, `qty`) VALUES (%s, %s, %s, %s)"
+    cursor.execute(sql, (name, description, price, qty))
+    mydb.commit()
 
-    db.session.add(new_product)
-    db.session.commit()
-
-    return product_schema.jsonify(new_product)
+    return jsonify({"name": name, "description": description, "price": price, "qty":qty})
 
 
 # Get all Products
 @app.route('/product', methods=['GET'])
 def get_products():
-    all_products = Product.query.all()
-    result = products_schema.dump(all_products)
-    return jsonify(result)
+    items = []
+    sql = "select id, name ,description, price, qty from product"
+    cursor.execute(sql)
+    rows = cursor.fetchall()
+    for row in rows:
+        items.append({"id":row[0],"name":row[1],"description":row[2],"price":row[3],"qty":row[4]})
+    return json.dumps(items)
 
 
 # Get Single
 @app.route('/product/<id>', methods=['GET'])
 def get_product(id):
-    product = Product.query.get(id)
-    return product_schema.jsonify(product)
+    items = []
+    sql = "select id, name ,description, price, qty from product where id = '"+id+"'"
+    cursor.execute(sql)
+    rows = cursor.fetchall()
+    for row in rows:
+        items.append({"id":row[0],"name":row[1],"description":row[2],"price":row[3],"qty":row[4]})
+    return json.dumps(items)
 
 
 # Update a Product
 @app.route('/product/<id>', methods=['PUT'])
 def update_product(id):
-    product = Product.query.get(id)
+    name = request.args['name']
+    description = request.args['description']
+    price = request.args['price']
+    qty = request.args['qty']
 
-    name = request.json['name']
-    description = request.json['description']
-    price = request.json['price']
-    qty = request.json['qty']
+    sql = "UPDATE `product` set name = %s, description = %s, price = %s, qty=%s where id = %s"
+    cursor.execute(sql, (name, description, price, qty, id))
+    mydb.commit()
 
-    product.name = name
-    product.description = description
-    product.price = price
-    product.qty = qty
-
-    db.session.commit()
-
-    return product_schema.jsonify(product)
+    return jsonify({"name": name, "description": description, "price": price, "qty":qty})
 
 
 
 # Get Single
 @app.route('/product/<id>', methods=['DELETE'])
 def delete_product(id):
-    product = Product.query.get(id)
-    db.session.delete(product)
-    db.session.commit()
-    return product_schema.jsonify(product)
+    items = []
+    sql = "select id, name ,description, price, qty from product where id = '"+id+"'"
+    cursor.execute(sql)
+    rows = cursor.fetchall()
+    for row in rows:
+        items.append({"id":row[0],"name":row[1],"description":row[2],"price":row[3],"qty":row[4]})
+        
+    sql = "delete from product where id = '"+id+"'"
+    cursor.execute(sql)
+    return json.dumps(items)
 
 # Run server
 if __name__ == '__main__':
