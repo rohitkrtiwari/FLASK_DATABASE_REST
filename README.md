@@ -1,5 +1,7 @@
 # **FLASK_DATABASE_REST - API**
 
+This app exposes endPoints which can be used to perform various DataBase operations (e.g. Fetch, Insert, Update and Delete ) on the database stored on server.
+
 ## Usage
 
 ### Users endpoint
